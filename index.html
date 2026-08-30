@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="sw">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SportyBet Financial Tracker & Analytics</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        :root {
+            --primary: #28a745;
+            --danger: #dc3545;
+            --dark: #1a1a2e;
+            --light: #f8f9fa;
+        }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #eef2f5; margin: 0; padding: 0; color: #333; }
+        
+        /* Toast Notifications */
+        #toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; }
+        .toast { padding: 15px 25px; border-radius: 8px; color: white; margin-bottom: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); display: flex; align-items: center; justify-content: space-between; min-width: 250px; animation: slideIn 0.3s ease; }
+        .toast.success { background: #28a745; }
+        .toast.error { background: #dc3545; }
+        .toast.info { background: #17a2b8; }
+        @keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+
+        /* Auth Screen */
+        .auth-container { max-width: 400px; margin: 60px auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        .auth-container h2 { text-align: center; color: var(--dark); margin-bottom: 20px; }
+        
+        /* Dashboard Screen */
+        .dashboard { display: none; padding: 20px; max-width: 1100px; margin: auto; }
+        .header { display: flex; justify-content: space-between; align-items: center; background: white; padding: 15px 20px; border-radius: 10px; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .card { background: white; padding: 20px; margin-bottom: 20px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+        .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+        
+        /* Forms & Inputs */
+        input, select, button { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 14px; }
+        button { background: var(--primary); color: white; font-weight: bold; border: none; cursor: pointer; transition: 0.2s; }
+        button:hover { opacity: 0.9; }
+        button.btn-danger { background: var(--danger); }
+        button.btn-secondary { background: #6c757d; }
+        
+        /* Summary Boxes */
+        .summary-box { text-align: center; padding: 15px; border-radius: 8px; background: #f8f9fa; border: 1px solid #e9ecef; }
+        .summary-box h4 { margin: 0; color: #6c757d; font-size: 14px; }
+        .summary-box p { margin: 10px 0 0; font-size: 22px; font-weight: bold; }
+
+        /* Tables */
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { border-bottom: 1px solid #ddd; padding: 10px; text-align: center; font-size: 14px; }
+        th { background: #f1f3f5; color: #495057; }
+        
+        .profit-text { color: green; font-weight: bold; }
+        .loss-text { color: red; font-weight: bold; }
+        .auth-link { color: #007bff; cursor: pointer; text-align: center; display: block; margin-top: 10px; font-size: 14px; }
+        .chart-container { position: relative; height: 250px; width: 100%; }
+    </style>
+</head>
+<body>
+
+    <div id="toast-container"></div>
+
+    <div id="authSection" class="auth-container">
+        <h2 id="authTitle">Ingia Mfumoni (Login)</h2>
+        <form id="authForm">
+            <input type="email" id="authEmail" placeholder="Barua Pepe (Email)" required>
+            <input type="password" id="authPassword" placeholder="Nenosiri (Password)" required>
+            <button type="submit" id="authSubmitBtn">Ingia</button>
+        </form>
+        <span class="auth-link" onclick="toggleAuthMode('reset')">Umesahau Nenosiri?</span>
+        <span class="auth-link" id="toggleAuthBtn" onclick="toggleAuthMode('signup')">Huna akaunti? Jisajili hapa</span>
+    </div>
+
+    <div id="dashboardSection" class="dashboard">
+        <div class="header">
+            <div>
+                <h3 style="margin:0;">SportyBet Analytics System</h3>
+                <small id="userDisplay">Karibu!</small>
+            </div>
+            <div>
+                <button onclick="exportPDF()" class="btn-secondary" style="width:auto; padding: 8px 15px;">📄 Pakua PDF</button>
+                <button onclick="logout()" class="btn-danger" style="width:auto; padding: 8px 15px;">Ondoka</button>
+            </div>
+        </div>
+
+        <div id="printArea">
+            <div class="card grid-2" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+                <div class="summary-box">
+                    <h4>Jumla ya Mtaji (Deposits)</h4>
+                    <p id="totalDeposit">0 TZS</p>
+                </div>
+                <div class="summary-box">
+                    <h4>Faida / Hasara Safi</h4>
+                    <p id="netProfit">0 TZS</p>
+                </div>
+                <div class="summary-box">
+                    <h4>Kiwango cha ROI (%)</h4>
+                    <p id="roiValue">0%</p>
+                </div>
+            </div>
+
+            <div class="grid-2">
+                <div class="card">
+                    <h3>Sajili Muamala MPYA</h3>
+                    <select id="transType">
+                        <option value="Deposit">Weka Mtaji (Deposit)</option>
+                        <option value="Bet Win">Mkeka Umeshinda (Win)</option>
+                        <option value="Bet Loss">Mkeka Umepoteza (Loss)</option>
+                    </select>
+                    <input type="number" id="transAmount" placeholder="Kiasi (TZS)" required>
+                    <button onclick="addTransaction()">Hifadhi Muamala</button>
+                </div>
+
+                <div class="card">
+                    <h3>Mwenendo wa Biashara (Graph)</h3>
+                    <div class="chart-container">
+                        <canvas id="profitChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card" style="border-left: 5px solid #007bff;">
+                <h3>Tathmini na Mrejesho wa Mfumo</h3>
+                <div id="assessmentContent">
+                    <p>Pakia miamala ili kupata tathmini ya kina ya mwenendo wako wa kibiashara.</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Historia ya Miamala</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Tarehe</th>
+                            <th>Aina</th>
+                            <th>Kiasi</th>
+                            <th>Kitendo</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historyTable"></tbody>
+                </table>
+            </div>
+        </div>
+        </div>
+
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+
+    <script>
+        // --- 1. FIREBASE CONFIGURATION (INTEGRATED FROM YOUR SCREENSHOT) ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyDzMmcwSYRZg_kGXqixZqjQem-YOUR_FULL_KEY", // Hakikisha umeweka apiKey kamili kutoka kwenye screen yako
+            authDomain: "family-goals-system.firebaseapp.com",
+            projectId: "family-goals-system",
+            storageBucket: "family-goals-system.firebasestorage.app",
+            messagingSenderId: "938650283930",
+            appId: "1:938650283930:web:d3310c9c3d98-YOUR_FULL_APP_ID" // Hakikisha umeweka appId kamili kutoka kwenye screen yako
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        // --- 2. GLOBAL VARIABLES ---
+        let currentMode = 'login';
+        let transactions = [];
+        let myChart = null;
+
+        // --- 3. TOAST NOTIFICATIONS ---
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerText = message;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 4000);
+        }
+
+        // --- 4. AUTHENTICATION LOGIC ---
+        function toggleAuthMode(mode) {
+            currentMode = mode;
+            const title = document.getElementById('authTitle');
+            const submitBtn = document.getElementById('authSubmitBtn');
+            const passInput = document.getElementById('authPassword');
+
+            if (mode === 'signup') {
+                title.innerText = 'Tengeneza Akaunti MPYA';
+                submitBtn.innerText = 'Jisajili';
+                passInput.style.display = 'block';
+            } else if (mode === 'reset') {
+                title.innerText = 'Rudisha Nenosiri (Reset)';
+                submitBtn.innerText = 'Tuma Link ya Reset';
+                passInput.style.display = 'none';
+            } else {
+                title.innerText = 'Ingia Mfumoni (Login)';
+                submitBtn.innerText = 'Ingia';
+                passInput.style.display = 'block';
+            }
+        }
+
+        document.getElementById('authForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const email = document.getElementById('authEmail').value;
+            const password = document.getElementById('authPassword').value;
+
+            if (currentMode === 'login') {
+                auth.signInWithEmailAndPassword(email, password)
+                    .then(() => showToast('Umeingia kikamilifu!', 'success'))
+                    .catch(err => showToast(err.message, 'error'));
+            } else if (currentMode === 'signup') {
+                auth.createUserWithEmailAndPassword(email, password)
+                    .then(() => showToast('Akaunti imetengenezwa!', 'success'))
+                    .catch(err => showToast(err.message, 'error'));
+            } else if (currentMode === 'reset') {
+                auth.sendPasswordResetEmail(email)
+                    .then(() => showToast('Link ya kubadilisha password imetumwa kwenye email yako.', 'info'))
+                    .catch(err => showToast(err.message, 'error'));
+            }
+        });
+
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                document.getElementById('authSection').style.display = 'none';
+                document.getElementById('dashboardSection').style.display = 'block';
+                document.getElementById('userDisplay').innerText = `Akaunti: ${user.email}`;
+                loadData(user.uid);
+            } else {
+                document.getElementById('authSection').style.display = 'block';
+                document.getElementById('dashboardSection').style.display = 'none';
+            }
+        });
+
+        function logout() {
+            auth.signOut().then(() => showToast('Umetoka mfumoni', 'info'));
+        }
+
+        // --- 5. FIRESTORE DATA HANDLING ---
+        function addTransaction() {
+            const user = auth.currentUser;
+            if (!user) return;
+
+            const type = document.getElementById('transType').value;
+            const amount = parseFloat(document.getElementById('transAmount').value);
+
+            if (!amount || amount <= 0) {
+                showToast('Ingiza kiasi sahihi!', 'error');
+                return;
+            }
+
+            const data = {
+                userId: user.uid,
+                type: type,
+                amount: amount,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                dateStr: new Date().toLocaleDateString('sw-TZ')
+            };
+
+            db.collection('transactions').add(data)
+                .then(() => {
+                    showToast('Muamala umehifadhiwa kikamilifu', 'success');
+                    document.getElementById('transAmount').value = '';
+                })
+                .catch(err => showToast('Kosa: ' + err.message, 'error'));
+        }
+
+        function loadData(userId) {
+            db.collection('transactions')
+                .where('userId', '==', userId)
+                .onSnapshot(snapshot => {
+                    transactions = [];
+                    snapshot.forEach(doc => {
+                        transactions.push({ id: doc.id, ...doc.data() });
+                    });
+                    updateUI();
+                });
+        }
+
+        function deleteTransaction(id) {
+            if (confirm('Una uhakika unataka kufuta muamala huu?')) {
+                db.collection('transactions').doc(id).delete()
+                    .then(() => showToast('Muamala umefutwa', 'info'));
+            }
+        }
+
+        // --- 6. UI & ANALYTICS UPDATE ---
+        function updateUI() {
+            let totalDeposit = 0;
+            let netProfit = 0;
+            let totalBets = 0;
+            const tableBody = document.getElementById('historyTable');
+            tableBody.innerHTML = '';
+
+            let chartLabels = [];
+            let chartData = [];
+            let runningProfit = 0;
+
+            transactions.forEach(t => {
+                if (t.type === 'Deposit') totalDeposit += t.amount;
+                if (t.type === 'Bet Win') {
+                    netProfit += t.amount;
+                    totalBets += t.amount;
+                    runningProfit += t.amount;
+                }
+                if (t.type === 'Bet Loss') {
+                    netProfit -= t.amount;
+                    totalBets += t.amount;
+                    runningProfit -= t.amount;
+                }
+
+                chartLabels.push(t.dateStr || '');
+                chartData.push(runningProfit);
+
+                let row = `<tr>
+                    <td>${t.dateStr || 'N/A'}</td>
+                    <td>${t.type}</td>
+                    <td class="${t.type === 'Bet Win' ? 'profit-text' : t.type === 'Bet Loss' ? 'loss-text' : ''}">${t.amount.toLocaleString()} TZS</td>
+                    <td><button onclick="deleteTransaction('${t.id}')" class="btn-danger" style="padding: 4px 8px; font-size:12px; width:auto;">Futa</button></td>
+                </tr>`;
+                tableBody.innerHTML += row;
+            });
+
+            document.getElementById('totalDeposit').innerText = totalDeposit.toLocaleString() + ' TZS';
+            const profitEl = document.getElementById('netProfit');
+            profitEl.innerText = netProfit.toLocaleString() + ' TZS';
+            profitEl.className = netProfit >= 0 ? 'profit-text' : 'loss-text';
+
+            let roi = totalBets > 0 ? ((netProfit / totalBets) * 100).toFixed(1) : 0;
+            document.getElementById('roiValue').innerText = roi + '%';
+
+            renderChart(chartLabels, chartData);
+            generateAssessment(netProfit, totalDeposit, roi);
+        }
+
+        // --- 7. CHART RENDERING ---
+        function renderChart(labels, data) {
+            const ctx = document.getElementById('profitChart').getContext('2d');
+            if (myChart) myChart.destroy();
+
+            myChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Mwenendo wa Faida/Hasara (TZS)',
+                        data: data,
+                        borderColor: '#28a745',
+                        backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                        fill: true,
+                        tension: 0.3
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
+
+        // --- 8. SMART ASSESSMENT ENGINE ---
+        function generateAssessment(profit, deposit, roi) {
+            const container = document.getElementById('assessmentContent');
+            let message = '';
+
+            if (profit > 0) {
+                message = `<p class="profit-text">🟢 <strong>Mwenendo Mwema:</strong> Biashara yako ina faida ya TZS ${profit.toLocaleString()} (ROI: ${roi}%).</p>
+                <p>Ushauri: Endelea kufuata kanuni za usimamizi wa mtaji na usizidishe kiwango cha kawaida cha dau (stake).</p>`;
+            } else if (profit < 0) {
+                message = `<p class="loss-text">🔴 <strong>Tahadhari ya Hasara:</strong> Umepoteza jumla ya TZS ${Math.abs(profit).toLocaleString()} (ROI: ${roi}%).</p>
+                <p>Ushauri: Inapendekezwa kupunguza kiasi cha dau au kusitisha michezo kwa muda ili kufanya tathmini ya mifumo yako.</p>`;
+            } else {
+                message = `<p>🟡 <strong>Hali ya Mlinganyo:</strong> Huna faida wala hasara kwa sasa. Ingiza miamala zaidi ili kuona mwelekeo.</p>`;
+            }
+
+            container.innerHTML = message;
+        }
+
+        // --- 9. PDF EXPORT FUNCTION ---
+        function exportPDF() {
+            showToast('Inatayarisha PDF...', 'info');
+            const element = document.getElementById('printArea');
+            const opt = {
+                margin:       0.5,
+                filename:     'Taarifa_ya_SportyBet_Tracker.pdf',
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2 },
+                jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+            };
+
+            html2pdf().set(opt).from(element).save()
+                .then(() => showToast('PDF Imepakuliwa kikamilifu!', 'success'));
+        }
+    </script>
+</body>
+</html>
