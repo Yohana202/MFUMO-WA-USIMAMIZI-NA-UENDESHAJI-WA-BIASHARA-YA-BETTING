@@ -3,391 +3,216 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SportyBet Financial Tracker & Analytics</title>
+    <title>SportyBet Financial Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <style>
-        :root {
-            --primary: #28a745;
-            --danger: #dc3545;
-            --dark: #1a1a2e;
-            --light: #f8f9fa;
-        }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #eef2f5; margin: 0; padding: 0; color: #333; }
-        
-        /* Toast Notifications */
-        #toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; }
-        .toast { padding: 15px 25px; border-radius: 8px; color: white; margin-bottom: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); display: flex; align-items: center; justify-content: space-between; min-width: 250px; animation: slideIn 0.3s ease; }
-        .toast.success { background: #28a745; }
-        .toast.error { background: #dc3545; }
-        .toast.info { background: #17a2b8; }
-        @keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
-
-        /* Auth Screen */
-        .auth-container { max-width: 400px; margin: 60px auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
-        .auth-container h2 { text-align: center; color: var(--dark); margin-bottom: 20px; }
-        
-        /* Dashboard Screen */
-        .dashboard { display: none; padding: 20px; max-width: 1100px; margin: auto; }
-        .header { display: flex; justify-content: space-between; align-items: center; background: white; padding: 15px 20px; border-radius: 10px; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-        .card { background: white; padding: 20px; margin-bottom: 20px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
-        .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
-        
-        /* Forms & Inputs */
-        input, select, button { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 14px; }
-        button { background: var(--primary); color: white; font-weight: bold; border: none; cursor: pointer; transition: 0.2s; }
-        button:hover { opacity: 0.9; }
-        button.btn-danger { background: var(--danger); }
-        button.btn-secondary { background: #6c757d; }
-        
-        /* Summary Boxes */
-        .summary-box { text-align: center; padding: 15px; border-radius: 8px; background: #f8f9fa; border: 1px solid #e9ecef; }
-        .summary-box h4 { margin: 0; color: #6c757d; font-size: 14px; }
-        .summary-box p { margin: 10px 0 0; font-size: 22px; font-weight: bold; }
-
-        /* Tables */
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th, td { border-bottom: 1px solid #ddd; padding: 10px; text-align: center; font-size: 14px; }
-        th { background: #f1f3f5; color: #495057; }
-        
-        .profit-text { color: green; font-weight: bold; }
-        .loss-text { color: red; font-weight: bold; }
-        .auth-link { color: #007bff; cursor: pointer; text-align: center; display: block; margin-top: 10px; font-size: 14px; }
-        .chart-container { position: relative; height: 250px; width: 100%; }
-    </style>
 </head>
-<body>
+<body class="bg-slate-900 text-white min-h-screen p-4 md:p-8">
 
-    <div id="toast-container"></div>
+    <div class="max-w-4xl mx-auto space-y-6">
+        <!-- Header & Data Management -->
+        <div class="flex flex-col md:flex-row justify-between items-center gap-4 bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-lg">
+            <div>
+                <h1 class="text-2xl font-bold text-emerald-400">SportyBet Tracker</h1>
+                <p class="text-slate-400 text-sm">Mfumo wa Offline (Local Storage)</p>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="exportData()" class="bg-blue-600 hover:bg-blue-500 text-xs md:text-sm px-3 py-2 rounded font-semibold transition">📥 Backup Data</button>
+                <label class="bg-purple-600 hover:bg-purple-500 text-xs md:text-sm px-3 py-2 rounded font-semibold cursor-pointer transition">
+                    📤 Restore Data
+                    <input type="file" id="importFile" onchange="importData(event)" class="hidden" accept=".json">
+                </label>
+                <button onclick="exportPDF()" class="bg-red-600 hover:bg-red-500 text-xs md:text-sm px-3 py-2 rounded font-semibold transition">📄 Export PDF</button>
+            </div>
+        </div>
 
-    <div id="authSection" class="auth-container">
-        <h2 id="authTitle">Ingia Mfumoni (Login)</h2>
-        <form id="authForm">
-            <input type="email" id="authEmail" placeholder="Barua Pepe (Email)" required>
-            <input type="password" id="authPassword" placeholder="Nenosiri (Password)" required>
-            <button type="submit" id="authSubmitBtn">Ingia</button>
-        </form>
-        <span class="auth-link" onclick="toggleAuthMode('reset')">Umesahau Nenosiri?</span>
-        <span class="auth-link" id="toggleAuthBtn" onclick="toggleAuthMode('signup')">Huna akaunti? Jisajili hapa</span>
+        <!-- Dashboard Cards -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="pdfContent">
+            <div class="bg-slate-800 p-4 rounded-lg border border-slate-700">
+                <p class="text-slate-400 text-xs uppercase">Jumla ya Mtaji</p>
+                <h3 class="text-xl font-bold text-white mt-1" id="totalStaked">TZS 0</h3>
+            </div>
+            <div class="bg-slate-800 p-4 rounded-lg border border-slate-700">
+                <p class="text-slate-400 text-xs uppercase">Jumla ya Mapato</p>
+                <h3 class="text-xl font-bold text-white mt-1" id="totalReturned">TZS 0</h3>
+            </div>
+            <div class="bg-slate-800 p-4 rounded-lg border border-slate-700">
+                <p class="text-slate-400 text-xs uppercase">Faida / Hasara</p>
+                <h3 class="text-xl font-bold mt-1" id="netProfit">TZS 0</h3>
+            </div>
+            <div class="bg-slate-800 p-4 rounded-lg border border-slate-700">
+                <p class="text-slate-400 text-xs uppercase">ROI (%)</p>
+                <h3 class="text-xl font-bold text-amber-400 mt-1" id="roiVal">0%</h3>
+            </div>
+        </div>
+
+        <!-- Form for New Bet -->
+        <div class="bg-slate-800 p-6 rounded-xl border border-slate-700">
+            <h2 class="text-lg font-semibold mb-4 text-emerald-400">Sajili Bet Mpya</h2>
+            <form id="betForm" onsubmit="addBet(event)" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <input type="number" id="stake" placeholder="Mtaji (TZS)" required class="bg-slate-900 border border-slate-700 p-2.5 rounded text-white focus:outline-none focus:border-emerald-500">
+                <input type="number" step="0.01" id="odds" placeholder="Odds" required class="bg-slate-900 border border-slate-700 p-2.5 rounded text-white focus:outline-none focus:border-emerald-500">
+                <select id="status" class="bg-slate-900 border border-slate-700 p-2.5 rounded text-white focus:outline-none focus:border-emerald-500">
+                    <option value="WON">WON (Umeshinda)</option>
+                    <option value="LOST">LOST (Umekosa)</option>
+                </select>
+                <button type="submit" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 px-4 rounded transition">Hifadhi Bet</button>
+            </form>
+        </div>
+
+        <!-- Chart Section -->
+        <div class="bg-slate-800 p-6 rounded-xl border border-slate-700">
+            <h2 class="text-lg font-semibold mb-4 text-slate-300">Mwenendo wa kifedha</h2>
+            <canvas id="financeChart" class="max-h-64"></canvas>
+        </div>
+
+        <!-- History Table -->
+        <div class="bg-slate-800 p-6 rounded-xl border border-slate-700 overflow-x-auto">
+            <h2 class="text-lg font-semibold mb-4 text-slate-300">Kumbukumbu za Bets</h2>
+            <table class="w-full text-left text-sm text-slate-300">
+                <thead class="bg-slate-900 text-slate-400 uppercase text-xs">
+                    <tr>
+                        <th class="p-3">Tarehe</th>
+                        <th class="p-3">Mtaji</th>
+                        <th class="p-3">Odds</th>
+                        <th class="p-3">Matokeo</th>
+                        <th class="p-3">Faida/Hasara</th>
+                        <th class="p-3">Kitendo</th>
+                    </tr>
+                </thead>
+                <tbody id="betsTableBody"></tbody>
+            </table>
+        </div>
     </div>
 
-    <div id="dashboardSection" class="dashboard">
-        <div class="header">
-            <div>
-                <h3 style="margin:0;">SportyBet Analytics System</h3>
-                <small id="userDisplay">Karibu!</small>
-            </div>
-            <div>
-                <button onclick="exportPDF()" class="btn-secondary" style="width:auto; padding: 8px 15px;">📄 Pakua PDF</button>
-                <button onclick="logout()" class="btn-danger" style="width:auto; padding: 8px 15px;">Ondoka</button>
-            </div>
-        </div>
-
-        <div id="printArea">
-            <div class="card grid-2" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
-                <div class="summary-box">
-                    <h4>Jumla ya Mtaji (Deposits)</h4>
-                    <p id="totalDeposit">0 TZS</p>
-                </div>
-                <div class="summary-box">
-                    <h4>Faida / Hasara Safi</h4>
-                    <p id="netProfit">0 TZS</p>
-                </div>
-                <div class="summary-box">
-                    <h4>Kiwango cha ROI (%)</h4>
-                    <p id="roiValue">0%</p>
-                </div>
-            </div>
-
-            <div class="grid-2">
-                <div class="card">
-                    <h3>Sajili Muamala MPYA</h3>
-                    <select id="transType">
-                        <option value="Deposit">Weka Mtaji (Deposit)</option>
-                        <option value="Bet Win">Mkeka Umeshinda (Win)</option>
-                        <option value="Bet Loss">Mkeka Umepoteza (Loss)</option>
-                    </select>
-                    <input type="number" id="transAmount" placeholder="Kiasi (TZS)" required>
-                    <button onclick="addTransaction()">Hifadhi Muamala</button>
-                </div>
-
-                <div class="card">
-                    <h3>Mwenendo wa Biashara (Graph)</h3>
-                    <div class="chart-container">
-                        <canvas id="profitChart"></canvas>
-                    </div>
-                </div>
-            </div>
-
-            <div class="card" style="border-left: 5px solid #007bff;">
-                <h3>Tathmini na Mrejesho wa Mfumo</h3>
-                <div id="assessmentContent">
-                    <p>Pakia miamala ili kupata tathmini ya kina ya mwenendo wako wa kibiashara.</p>
-                </div>
-            </div>
-
-            <div class="card">
-                <h3>Historia ya Miamala</h3>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Tarehe</th>
-                            <th>Aina</th>
-                            <th>Kiasi</th>
-                            <th>Kitendo</th>
-                        </tr>
-                    </thead>
-                    <tbody id="historyTable"></tbody>
-                </table>
-            </div>
-        </div>
-        </div>
-
-    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
-
     <script>
-        // --- 1. FIREBASE CONFIGURATION (INTEGRATED FROM YOUR SCREENSHOT) ---
-        const firebaseConfig = {
-            apiKey: "AIzaSyDzMmcwSYRZg_kGXqixZqjQem-YOUR_FULL_KEY", // Hakikisha umeweka apiKey kamili kutoka kwenye screen yako
-            authDomain: "family-goals-system.firebaseapp.com",
-            projectId: "family-goals-system",
-            storageBucket: "family-goals-system.firebasestorage.app",
-            messagingSenderId: "938650283930",
-            appId: "1:938650283930:web:d3310c9c3d98-YOUR_FULL_APP_ID" // Hakikisha umeweka appId kamili kutoka kwenye screen yako
-        };
+        let bets = JSON.parse(localStorage.getItem('sportybet_records')) || [];
+        let chartInstance = null;
 
-        // Initialize Firebase
-        firebase.initializeApp(firebaseConfig);
-        const auth = firebase.auth();
-        const db = firebase.firestore();
-
-        // --- 2. GLOBAL VARIABLES ---
-        let currentMode = 'login';
-        let transactions = [];
-        let myChart = null;
-
-        // --- 3. TOAST NOTIFICATIONS ---
-        function showToast(message, type = 'info') {
-            const container = document.getElementById('toast-container');
-            const toast = document.createElement('div');
-            toast.className = `toast ${type}`;
-            toast.innerText = message;
-            container.appendChild(toast);
-            setTimeout(() => toast.remove(), 4000);
+        function saveAndRefresh() {
+            localStorage.setItem('sportybet_records', JSON.stringify(bets));
+            renderDashboard();
         }
 
-        // --- 4. AUTHENTICATION LOGIC ---
-        function toggleAuthMode(mode) {
-            currentMode = mode;
-            const title = document.getElementById('authTitle');
-            const submitBtn = document.getElementById('authSubmitBtn');
-            const passInput = document.getElementById('authPassword');
-
-            if (mode === 'signup') {
-                title.innerText = 'Tengeneza Akaunti MPYA';
-                submitBtn.innerText = 'Jisajili';
-                passInput.style.display = 'block';
-            } else if (mode === 'reset') {
-                title.innerText = 'Rudisha Nenosiri (Reset)';
-                submitBtn.innerText = 'Tuma Link ya Reset';
-                passInput.style.display = 'none';
-            } else {
-                title.innerText = 'Ingia Mfumoni (Login)';
-                submitBtn.innerText = 'Ingia';
-                passInput.style.display = 'block';
-            }
-        }
-
-        document.getElementById('authForm').addEventListener('submit', (e) => {
+        function addBet(e) {
             e.preventDefault();
-            const email = document.getElementById('authEmail').value;
-            const password = document.getElementById('authPassword').value;
+            const stake = parseFloat(document.getElementById('stake').value);
+            const odds = parseFloat(document.getElementById('odds').value);
+            const status = document.getElementById('status').value;
 
-            if (currentMode === 'login') {
-                auth.signInWithEmailAndPassword(email, password)
-                    .then(() => showToast('Umeingia kikamilifu!', 'success'))
-                    .catch(err => showToast(err.message, 'error'));
-            } else if (currentMode === 'signup') {
-                auth.createUserWithEmailAndPassword(email, password)
-                    .then(() => showToast('Akaunti imetengenezwa!', 'success'))
-                    .catch(err => showToast(err.message, 'error'));
-            } else if (currentMode === 'reset') {
-                auth.sendPasswordResetEmail(email)
-                    .then(() => showToast('Link ya kubadilisha password imetumwa kwenye email yako.', 'info'))
-                    .catch(err => showToast(err.message, 'error'));
-            }
-        });
-
-        auth.onAuthStateChanged(user => {
-            if (user) {
-                document.getElementById('authSection').style.display = 'none';
-                document.getElementById('dashboardSection').style.display = 'block';
-                document.getElementById('userDisplay').innerText = `Akaunti: ${user.email}`;
-                loadData(user.uid);
-            } else {
-                document.getElementById('authSection').style.display = 'block';
-                document.getElementById('dashboardSection').style.display = 'none';
-            }
-        });
-
-        function logout() {
-            auth.signOut().then(() => showToast('Umetoka mfumoni', 'info'));
-        }
-
-        // --- 5. FIRESTORE DATA HANDLING ---
-        function addTransaction() {
-            const user = auth.currentUser;
-            if (!user) return;
-
-            const type = document.getElementById('transType').value;
-            const amount = parseFloat(document.getElementById('transAmount').value);
-
-            if (!amount || amount <= 0) {
-                showToast('Ingiza kiasi sahihi!', 'error');
-                return;
-            }
-
-            const data = {
-                userId: user.uid,
-                type: type,
-                amount: amount,
-                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-                dateStr: new Date().toLocaleDateString('sw-TZ')
+            const newBet = {
+                id: Date.now(),
+                date: new Date().toLocaleDateString('sw-TZ'),
+                stake,
+                odds,
+                status,
+                returnVal: status === 'WON' ? stake * odds : 0,
+                profit: status === 'WON' ? (stake * odds) - stake : -stake
             };
 
-            db.collection('transactions').add(data)
-                .then(() => {
-                    showToast('Muamala umehifadhiwa kikamilifu', 'success');
-                    document.getElementById('transAmount').value = '';
-                })
-                .catch(err => showToast('Kosa: ' + err.message, 'error'));
+            bets.unshift(newBet);
+            saveAndRefresh();
+            document.getElementById('betForm').reset();
         }
 
-        function loadData(userId) {
-            db.collection('transactions')
-                .where('userId', '==', userId)
-                .onSnapshot(snapshot => {
-                    transactions = [];
-                    snapshot.forEach(doc => {
-                        transactions.push({ id: doc.id, ...doc.data() });
-                    });
-                    updateUI();
-                });
+        function deleteBet(id) {
+            bets = bets.filter(b => b.id !== id);
+            saveAndRefresh();
         }
 
-        function deleteTransaction(id) {
-            if (confirm('Una uhakika unataka kufuta muamala huu?')) {
-                db.collection('transactions').doc(id).delete()
-                    .then(() => showToast('Muamala umefutwa', 'info'));
-            }
-        }
-
-        // --- 6. UI & ANALYTICS UPDATE ---
-        function updateUI() {
-            let totalDeposit = 0;
-            let netProfit = 0;
-            let totalBets = 0;
-            const tableBody = document.getElementById('historyTable');
+        function renderDashboard() {
+            let staked = 0, returned = 0, profit = 0;
+            const tableBody = document.getElementById('betsTableBody');
             tableBody.innerHTML = '';
 
-            let chartLabels = [];
-            let chartData = [];
-            let runningProfit = 0;
+            bets.forEach(b => {
+                staked += b.stake;
+                returned += b.returnVal;
+                profit += b.profit;
 
-            transactions.forEach(t => {
-                if (t.type === 'Deposit') totalDeposit += t.amount;
-                if (t.type === 'Bet Win') {
-                    netProfit += t.amount;
-                    totalBets += t.amount;
-                    runningProfit += t.amount;
-                }
-                if (t.type === 'Bet Loss') {
-                    netProfit -= t.amount;
-                    totalBets += t.amount;
-                    runningProfit -= t.amount;
-                }
-
-                chartLabels.push(t.dateStr || '');
-                chartData.push(runningProfit);
-
-                let row = `<tr>
-                    <td>${t.dateStr || 'N/A'}</td>
-                    <td>${t.type}</td>
-                    <td class="${t.type === 'Bet Win' ? 'profit-text' : t.type === 'Bet Loss' ? 'loss-text' : ''}">${t.amount.toLocaleString()} TZS</td>
-                    <td><button onclick="deleteTransaction('${t.id}')" class="btn-danger" style="padding: 4px 8px; font-size:12px; width:auto;">Futa</button></td>
-                </tr>`;
-                tableBody.innerHTML += row;
+                tableBody.innerHTML += `
+                    <tr class="border-b border-slate-700 hover:bg-slate-750">
+                        <td class="p-3">${b.date}</td>
+                        <td class="p-3">TZS ${b.stake.toLocaleString()}</td>
+                        <td class="p-3">${b.odds}</td>
+                        <td class="p-3"><span class="${b.status === 'WON' ? 'text-emerald-400' : 'text-red-400'} font-bold">${b.status}</span></td>
+                        <td class="p-3 font-semibold ${b.profit >= 0 ? 'text-emerald-400' : 'text-red-400'}">TZS ${b.profit.toLocaleString()}</td>
+                        <td class="p-3"><button onclick="deleteBet(${b.id})" class="text-red-500 hover:text-red-400">Futa</button></td>
+                    </tr>
+                `;
             });
 
-            document.getElementById('totalDeposit').innerText = totalDeposit.toLocaleString() + ' TZS';
+            document.getElementById('totalStaked').innerText = `TZS ${staked.toLocaleString()}`;
+            document.getElementById('totalReturned').innerText = `TZS ${returned.toLocaleString()}`;
+            
             const profitEl = document.getElementById('netProfit');
-            profitEl.innerText = netProfit.toLocaleString() + ' TZS';
-            profitEl.className = netProfit >= 0 ? 'profit-text' : 'loss-text';
+            profitEl.innerText = `TZS ${profit.toLocaleString()}`;
+            profitEl.className = `text-xl font-bold mt-1 ${profit >= 0 ? 'text-emerald-400' : 'text-red-400'}`;
 
-            let roi = totalBets > 0 ? ((netProfit / totalBets) * 100).toFixed(1) : 0;
-            document.getElementById('roiValue').innerText = roi + '%';
+            const roi = staked > 0 ? ((profit / staked) * 100).toFixed(1) : 0;
+            document.getElementById('roiVal').innerText = `${roi}%`;
 
-            renderChart(chartLabels, chartData);
-            generateAssessment(netProfit, totalDeposit, roi);
+            renderChart();
         }
 
-        // --- 7. CHART RENDERING ---
-        function renderChart(labels, data) {
-            const ctx = document.getElementById('profitChart').getContext('2d');
-            if (myChart) myChart.destroy();
+        function renderChart() {
+            const ctx = document.getElementById('financeChart').getContext('2d');
+            if (chartInstance) chartInstance.destroy();
 
-            myChart = new Chart(ctx, {
+            const labels = bets.slice(0, 10).map(b => b.date).reverse();
+            const data = bets.slice(0, 10).map(b => b.profit).reverse();
+
+            chartInstance = new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: labels,
+                    labels,
                     datasets: [{
-                        label: 'Mwenendo wa Faida/Hasara (TZS)',
-                        data: data,
-                        borderColor: '#28a745',
-                        backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                        label: 'Faida/Hasara (TZS)',
+                        data,
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
                         fill: true,
                         tension: 0.3
                     }]
                 },
-                options: { responsive: true, maintainAspectRatio: false }
+                options: { responsive: true, plugins: { legend: { display: false } } }
             });
         }
 
-        // --- 8. SMART ASSESSMENT ENGINE ---
-        function generateAssessment(profit, deposit, roi) {
-            const container = document.getElementById('assessmentContent');
-            let message = '';
-
-            if (profit > 0) {
-                message = `<p class="profit-text">🟢 <strong>Mwenendo Mwema:</strong> Biashara yako ina faida ya TZS ${profit.toLocaleString()} (ROI: ${roi}%).</p>
-                <p>Ushauri: Endelea kufuata kanuni za usimamizi wa mtaji na usizidishe kiwango cha kawaida cha dau (stake).</p>`;
-            } else if (profit < 0) {
-                message = `<p class="loss-text">🔴 <strong>Tahadhari ya Hasara:</strong> Umepoteza jumla ya TZS ${Math.abs(profit).toLocaleString()} (ROI: ${roi}%).</p>
-                <p>Ushauri: Inapendekezwa kupunguza kiasi cha dau au kusitisha michezo kwa muda ili kufanya tathmini ya mifumo yako.</p>`;
-            } else {
-                message = `<p>🟡 <strong>Hali ya Mlinganyo:</strong> Huna faida wala hasara kwa sasa. Ingiza miamala zaidi ili kuona mwelekeo.</p>`;
-            }
-
-            container.innerHTML = message;
+        // Backup to JSON
+        function exportData() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(bets));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", `SportyBet_Backup_${new Date().toISOString().slice(0,10)}.json`);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
         }
 
-        // --- 9. PDF EXPORT FUNCTION ---
-        function exportPDF() {
-            showToast('Inatayarisha PDF...', 'info');
-            const element = document.getElementById('printArea');
-            const opt = {
-                margin:       0.5,
-                filename:     'Taarifa_ya_SportyBet_Tracker.pdf',
-                image:        { type: 'jpeg', quality: 0.98 },
-                html2canvas:  { scale: 2 },
-                jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+        // Restore from JSON
+        function importData(event) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    bets = JSON.parse(e.target.result);
+                    saveAndRefresh();
+                    alert('Taarifa zimerudishwa kikamilifu!');
+                } catch(err) {
+                    alert('Faili hili sio sahihi!');
+                }
             };
-
-            html2pdf().set(opt).from(element).save()
-                .then(() => showToast('PDF Imepakuliwa kikamilifu!', 'success'));
+            reader.readAsText(event.target.files[0]);
         }
+
+        // Export PDF
+        function exportPDF() {
+            const element = document.getElementById('pdfContent');
+            html2pdf().from(element).save('SportyBet_Summary.pdf');
+        }
+
+        renderDashboard();
     </script>
 </body>
 </html>
